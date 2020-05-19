@@ -42,7 +42,7 @@ The meCLIP pipeline creates a number of intermediate and temporary files as diff
 
 First, create a new directory in a reasonable place to use as your working directory.  
 \
-`mkdir experiment-name`
+`mkdir experiment-name`  
 \
 Next, clone the meCLIP files from GitHub into that directory:  
 \
