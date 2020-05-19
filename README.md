@@ -40,11 +40,9 @@ For a successful installation, a list of installed packages appears.
 
 The meCLIP pipeline creates a number of intermediate and temporary files as different underlying tools are executed. In order to keep these files organized and separated from other meCLIP instances, we recommend creating **an indepedent working directory for each meCLIP experiment** (where a single meCLIP experiment would consist of an 'IP' sample with a corresponding 'Input' sample). While there are several ways to accomplish this, the easiest is to simply clone the meCLIP files from GitHub into a new directory for each independent meCLIP experiment.
 
-First, create a new directory in a reasonable place and change into that directory in your terminal:  
+First, create a new directory in a reasonable place to use as your working directory.  
 \
 `mkdir experiment-name`
-
-`cd experiment-name`  
 \
 Next, clone the meCLIP files from GitHub into that directory:  
 \
