@@ -1,17 +1,12 @@
----
-output:
-  html_document: default
-  pdf_document: default
----
 ## Overview of meCLIP 
 
-meCLIP is method to identify m^6^A residues at single-nucleotide resolution using eCLIP. It uses the Snakemake workflow management system to handle analysis of the resulting sequencing reads. The meCLIP analysis pipeline requires minimal input from the user once executed and automatically generates a list of identified m^6^As along with a report summarizing the analysis. The following steps outline installation of Snakemake and execution of the meCLIP workflow. 
+meCLIP is method to identify m<sup>6</sup>As residues at single-nucleotide resolution using eCLIP. It uses the Snakemake workflow management system to handle analysis of the resulting sequencing reads. The meCLIP analysis pipeline requires minimal input from the user once executed and automatically generates a list of identified m<sup>6</sup>As along with a report summarizing the analysis. The following steps outline installation of Snakemake and execution of the meCLIP workflow. 
 
 ### Requirements
 
 If installed as recommended, the pipeline automatically handles the installation of required software. For reference, the following programs are used by meCLIP:
 
-    Unix / Linux based operating system (tested with Ubuntu 18.04.4 and OS X 10.15)
+    Snakemake (v5.14.0)
     FastQC (v0.11.7)
     UMI-tools (v1.0.0)
     cutadapt (v2.8)
@@ -23,21 +18,23 @@ If installed as recommended, the pipeline automatically handles the installation
     R (tested with v3.6.2) 
       "scales" and "ggplot2" packages
     
-### Snakemake Installation
+The meCLIP pipeline should work on all modern operating systems and has been specifically tested on Ubuntu 18.04.4, OS X 10.15, and Windows 10 (using Windows Subsystem for Linux*).
 
-The recommended way to install Snakemake is via **conda** because it also enables any software dependencies to be easily installed.
+*For a great guide on installing WSL in Windows and setting up conda, see https://github.com/kapsakcj/win10-linux-conda-how-to
+
+### Conda Installation
+
+The recommended way to setup the meCLIP pipeline is via **conda** because it also enables any software dependencies to be easily installed.
 
 First, install the Miniconda Python3 distribution (download the latest version [here][id], making sure to download the Python3 version):  
 \
 `bash Miniconda3-latest-Linux-x86_64.sh`  
 \
-
-Answer 'yes' to the question about whether conda shall be put into your PATH. Then, you can install Snakemake with:  
+Answer 'yes' to the question about whether conda shall be put into your PATH. You can check that the installation was succesful by running:
 \
-  `conda install -c conda-forge -c bioconda snakemake`
+  `conda list
 \
-  
-For other installation options, see https://snakemake.readthedocs.io/en/latest/getting_started/installation.html
+For a successful installation, a list of installed packages appears.
 
 ### Prepare a Working Directory
 
@@ -51,7 +48,7 @@ First, create a new directory in a reasonable place and change into that directo
 \
 Next, clone the meCLIP files from GitHub into that directory:  
 \
-`wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz`  
+`git clone https://github.com/ajlabuc/meCLIP.git`  
 \
 After the pipeline finishes running the meCLIP files themselves can be safely deleted, leaving an independent directory containing all the relevant files from the analysis of that particular experiment.
 
@@ -63,7 +60,7 @@ The **environment.yaml** file that was downloaded from GitHub can be used to ins
 \
 To activate the meCLIP environment, execute:  
 \
-`conda activate snakemake-tutorial`  
+`conda activate meCLIP`  
 \
 To exit the environment once the analysis is complete, you can execute:  
 \
@@ -86,35 +83,40 @@ reads:
     input_read1: input_read1
     input_read2: input_read2
 
-adapters: adapterList.txt
+adapters: config/adapterList.txt
 
 motif: RAC
 
 STAR:
-  repbase: reference_genomes/STAR/repbase_human
-  genome: reference_genomes/STAR/hg19
+  repbase: STAR/repbase_human
+  genome: STAR/hg19
 
 genome:
-  fasta: reference_genomes/genome/hg19/GRCh37.p13.genome.fa
-  twoBit: reference_genomes/genome/hg19/GRCh37.p13.genome.2bit
+  fasta: genome/GRCh37.p13.genome.fa
+  twoBit: genome/GRCh37.p13.genome.2bit
+  
+metaplotr:
+  region_sizes: metaplotr/region_sizes.txt
+  hg19_annotation: metaplotr/hg19_annot.sorted.bed
 ```
 
 * **threads:** defines the number of threads available to the pipeline  
-\
-* **sample_name:** easily identifiable name of the experiment (this will be included in most of the file names and titles)  
-\
-* **reads:** specifies the location of the paired sequencing read files for the IP and INPUT samples (omit the extension suffix, i.e. 'fastq.gz', as this is assumed and needs to be omitted for proper naming) 
-\
-* **adapters:** location of the list of adapters used by FastQC to identify contamination (tab-delinted file containing name and sequence)  
-\
-* **motif:** IUPAC definition of the motif that is used to filter m^6^As    
-\
-* **STAR:** location of the directories containing the respective STAR indexes for the reference genome and relevant RepBase  
-\
-* **genome:** location of the FASTA file and corresponding 2bit file for the reference genome  
-\
 
-Relevant files for the hg19 genome are included in the GitHub repository,
+* **sample_name:** easily identifiable name of the experiment (this will be included in most of the file names and titles)  
+
+* **reads:** specifies the location of the paired sequencing read files for the IP and INPUT samples (omit the extension suffix, i.e. 'fastq.gz', as this is assumed and needs to be omitted for proper naming) 
+
+* **adapters:** location of the list of adapters used by FastQC to identify contamination (tab-delinted file containing name and sequence, example included)  
+
+* **motif:** IUPAC definition of the motif that is used to filter m^6^As    
+
+* **STAR:** location of the directories containing the respective STAR indexes for the reference genome and relevant RepBase  
+
+* **genome:** location of the FASTA file and corresponding 2bit file for the reference genome
+
+* **metaplotr:** location of the annotation file used to generate the metagene plot
+
+Note - The aligner indicies, genomes, and corresponding annotations are quite large (45Gb for GRCh37/hg19 genome). Please ensure you have sufficient disk space to store the files before executing the pipeline.
 
 ### Execute the Analysis Pipeline
 
@@ -122,10 +124,10 @@ Once the location of the reads and genomes are saved into the configuration file
 
 `snakemake`
 
-This will identify m^6^As in the IP and INPUT samples, cross-reference the two sets to remove any overlaps (to account for mutations not induced by the m^6^A-antibody), and then annotate the resulting m^6^As and generate a report summarizing the analysis.
+This will identify m6As in the IP and INPUT samples, cross-reference the two sets to remove any overlaps (to account for mutations not induced by the m<sup>6</sup>As-antibody), and then annotate the resulting m<sup>6</sup>As and generate a report summarizing the analysis.
 
 ### Final Remarks
 
-The goal of the meCLIP analysis pipeline is to simplify the identification of m^6^As from sequencing reads by streamlining the workflow so that the vast majority of steps are automatically executed and relevant output files are automatically generated. We hope this pipeline will become a valuable tool for researchers interesting in identifying m^6^As.
+The goal of the meCLIP analysis pipeline is to simplify the identification of m<sup>6</sup>As from sequencing reads by streamlining the workflow so that the vast majority of steps are automatically executed and relevant output files are automatically generated. We hope this pipeline will become a valuable tool for researchers interesting in identifying m<sup>6</sup>As.
 
-[id]: https://conda.io/en/latest/miniconda.html#macosx-installers
+[id]: https://conda.io/en/latest/miniconda.html
