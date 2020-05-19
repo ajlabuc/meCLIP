@@ -12,13 +12,15 @@ reads:
 
 adapters: adapterList.txt
 
+motif: RAC
+
 STAR:
   repbase: STAR/repbase_human
   genome: STAR/hg19
 
 genome:
-  fasta: genome/hg19/GRCh37.p13.genome.fa
-  twoBit: genome/hg19/GRCh37.p13.genome.2bit
+  fasta: genome/GRCh37.p13.genome.fa
+  twoBit: genome/GRCh37.p13.genome.2bit
 
 metaplotr:
   region_sizes: metaplotr/region_sizes.txt

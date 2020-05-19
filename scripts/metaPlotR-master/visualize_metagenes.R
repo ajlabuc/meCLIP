@@ -1,6 +1,10 @@
+if (!require(scales)) 
+  install.packages('scales', repos = "http://cran.us.r-project.org")
+library("scales")
+
 ## Read in distance measure file
 dist <- read.delim (snakemake@input[["txt"]], header = T)
-title <- read.delim (snakemake@params[["sample_name"]], header = T)
+title <- snakemake@params[["sample_name"]]
 
 ## Select the longest isoforms
 trx_len <- dist$utr5_size + dist$cds_size + dist$utr3_size
@@ -17,7 +21,6 @@ utr3.dist <- dist[dist$rel_location >= 2, ]
 cds.dist <- dist [dist$rel_location < 2 & dist$rel_location >= 1, ]
 
 # Rescale 5'UTR and 3'UTR
-library("scales")
 utr5.dist$rel_location <- rescale(utr5.dist$rel_location, to = c(1-utr5.SF, 1), from = c(0,1))
 utr3.dist$rel_location <- rescale(utr3.dist$rel_location, to = c(2, 2+utr3.SF), from = c(2,3))
 

@@ -3,7 +3,7 @@ threads_max=int(config["threads"])
 
 rule all:
     input:
-        png=expand("metaPlotR/{sample_name}.TEST.png", sample_name=config["sample_name"])
+        png=expand("metaPlotR/{sample_name}.metagene.png", sample_name=config["sample_name"])
 
 rule ip_fastqc_preAdapters:
     input:
@@ -365,10 +365,11 @@ rule bedtools:
     output:
         bed=expand("{sample_name}.m6aList.sorted.annotated.bed", sample_name=config["sample_name"])
     params:
-        sample_name=expand("{sample_name}", sample_name=config["sample_name"])
+        sample_name=expand("{sample_name}", sample_name=config["sample_name"]),
+        bed_genome=expand("{hg19_annotation}", hg19_annotation=config["metaplotr"]["hg19_annotation"])
     shell:
         "sort -k1,1 -k2,2n {input.bed} > {params.sample_name}.m6aList.sorted.bed && "
-        "bedtools intersect -a {params.sample_name}.m6aList.sorted.bed -b bed/hg19_annot.sorted.bed -wb -s -sorted > {output.bed}"
+        "bedtools intersect -a {params.sample_name}.m6aList.sorted.bed -b {params.bed_genome} -wb -s -sorted > {output.bed}"
 
 rule meCLIP_m6aAnnotator:
     input:
@@ -397,7 +398,7 @@ rule metaPlotR_R:
     input:
         txt=expand("metaPlotR/{sample_name}.m6a.dist.measures.txt", sample_name=config["sample_name"])
     output:
-        png=expand("metaPlotR/{sample_name}.TEST.png", sample_name=config["sample_name"])
+        png=expand("metaPlotR/{sample_name}.metagene.png", sample_name=config["sample_name"])
     params:
         sample_name=expand("{sample_name}", sample_name=config["sample_name"])
     message: "Generating metagene plot..."
