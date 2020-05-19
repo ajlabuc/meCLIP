@@ -4,13 +4,13 @@ sample_name: meCLIP_TEST
 
 reads:
   ip:
-    ip_read1: ip_read1
-    ip_read2: ip_read2
+    ip_read1: reads/ip_read1
+    ip_read2: reads/ip_read2
   input:
-    input_read1: input_read1
-    input_read2: input_read2
+    input_read1: reads/input_read1
+    input_read2: reads/input_read2
 
-adapters: adapterList.txt
+adapters: config/adapterList.txt
 
 motif: RAC
 

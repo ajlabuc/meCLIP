@@ -30,9 +30,9 @@ First, install the Miniconda Python3 distribution (download the latest version [
 \
 `bash Miniconda3-latest-Linux-x86_64.sh`  
 \
-Answer 'yes' to the question about whether conda shall be put into your PATH. You can check that the installation was succesful by running:
+Answer 'yes' to the question about whether conda shall be put into your PATH. You can check that the installation was succesful by running:  
 \
-  `conda list`
+  `conda list`  
 \
 For a successful installation, a list of installed packages appears.
 
@@ -77,11 +77,11 @@ sample_name: experiment_name
 
 reads:
   ip:
-    ip_read1: ip_read1
-    ip_read2: ip_read2
+    ip_read1: reads/ip_read1
+    ip_read2: reads/ip_read2
   input:
-    input_read1: input_read1
-    input_read2: input_read2
+    input_read1: reads/input_read1
+    input_read2: reads/input_read2
 
 adapters: config/adapterList.txt
 
