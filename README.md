@@ -32,7 +32,7 @@ First, install the Miniconda Python3 distribution (download the latest version [
 \
 Answer 'yes' to the question about whether conda shall be put into your PATH. You can check that the installation was succesful by running:
 \
-  `conda list
+  `conda list`
 \
 For a successful installation, a list of installed packages appears.
 
@@ -108,7 +108,7 @@ metaplotr:
 
 * **adapters:** location of the list of adapters used by FastQC to identify contamination (tab-delinted file containing name and sequence, example included)  
 
-* **motif:** IUPAC definition of the motif that is used to filter m^6^As    
+* **motif:** IUPAC definition of the motif that is used to filter m<sup>6</sup>As   
 
 * **STAR:** location of the directories containing the respective STAR indexes for the reference genome and relevant RepBase  
 
