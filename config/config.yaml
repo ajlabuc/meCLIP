@@ -1,0 +1,25 @@
+threads: 3
+
+sample_name: meCLIP_TEST
+
+reads:
+  ip:
+    ip_read1: ip_read1
+    ip_read2: ip_read2
+  input:
+    input_read1: input_read1
+    input_read2: input_read2
+
+adapters: adapterList.txt
+
+STAR:
+  repbase: STAR/repbase_human
+  genome: STAR/hg19
+
+genome:
+  fasta: genome/hg19/GRCh37.p13.genome.fa
+  twoBit: genome/hg19/GRCh37.p13.genome.2bit
+
+metaplotr:
+  region_sizes: metaplotr/region_sizes.txt
+  hg19_annotation: metaplotr/hg19_annot.sorted.bed
