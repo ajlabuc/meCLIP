@@ -3,7 +3,7 @@ threads_max=int(config["threads"])
 
 rule all:
     input:
-        png=expand("metaPlotR/{sample_name}.metagene.png", sample_name=config["sample_name"])
+        png=expand("{sample_name}.metagene.png", sample_name=config["sample_name"])
 
 rule ip_fastqc_preAdapters:
     input:
@@ -398,7 +398,7 @@ rule metaPlotR_R:
     input:
         txt=expand("metaPlotR/{sample_name}.m6a.dist.measures.txt", sample_name=config["sample_name"])
     output:
-        png=expand("metaPlotR/{sample_name}.metagene.png", sample_name=config["sample_name"])
+        png=expand("{sample_name}.metagene.png", sample_name=config["sample_name"])
     params:
         sample_name=expand("{sample_name}", sample_name=config["sample_name"])
     message: "Generating metagene plot..."
