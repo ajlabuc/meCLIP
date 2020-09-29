@@ -1,6 +1,6 @@
-## Overview of meCLIP 
+## Overview of meCLIP
 
-meCLIP is method to identify m<sup>6</sup>As residues at single-nucleotide resolution using eCLIP. It uses the Snakemake workflow management system to handle analysis of the resulting sequencing reads. The meCLIP analysis pipeline requires minimal input from the user once executed and automatically generates a list of identified m<sup>6</sup>As along with a report summarizing the analysis. The following steps outline installation of Snakemake and execution of the meCLIP workflow. 
+meCLIP is method to identify m<sup>6</sup>As residues at single-nucleotide resolution using eCLIP. It uses the Snakemake workflow management system to handle analysis of the resulting sequencing reads. The meCLIP analysis pipeline requires minimal input from the user once executed and automatically generates a list of identified m<sup>6</sup>As along with a report summarizing the analysis. The following steps outline installation of Snakemake and execution of the meCLIP workflow.
 
 ### Requirements
 
@@ -15,9 +15,9 @@ If installed as recommended, the pipeline automatically handles the installation
     Java (OpenJDK v11.0.6)
     Perl (tested with v5.26.2)
     bedtools (tested with v2.26.0)
-    R (tested with v3.6.2) 
+    R (tested with v3.6.2)
       "scales" and "ggplot2" packages
-    
+
 The meCLIP pipeline should work on all modern operating systems and has been specifically tested on Ubuntu 18.04.4, OS X 10.15, and Windows 10 (using Windows Subsystem for Linux*).
 
 *For a great guide on installing WSL in Windows and setting up conda, see https://github.com/kapsakcj/win10-linux-conda-how-to
@@ -52,11 +52,17 @@ After the pipeline finishes running the meCLIP files themselves can be safely de
 
 ### Create Conda Environment with Required Software
 
-The **environment.yaml** file that was downloaded from GitHub can be used to install all the software required by meCLIP into an isolated Conda environment. This ensures that the correct version of the software is utilized and any other dependencies are reconciled. To create an environment with the required software:  
+The **environment.yaml** file that was downloaded from GitHub can be used to install all the software required by meCLIP into an isolated Conda environment. This ensures that the correct version of the software is utilized and any other dependencies are reconciled.
+
+The default Conda solver is a bit slow and sometimes has issues with selecting the latest package releases. Therefore, we recommend to install Mamba as a drop-in replacement via:
 \
-`conda env create --name meCLIP --file environment.yaml`  
+`conda install -c conda-forge mamba`
 \
-To activate the meCLIP environment, execute:  
+Then, to create an environment with the required software:  
+\
+`mamba env create --name meCLIP --file environment.yaml`  
+\
+Finally, to activate the meCLIP environment, execute:  
 \
 `conda activate meCLIP`  
 \
@@ -66,7 +72,7 @@ To exit the environment once the analysis is complete, you can execute:
 
 ### Customizing Configuration File
 
-One of the few steps in the meCLIP analysis pipeline that actually requires opening a file is customizing the configuration file. This is where you inform the pipeline where relevant files are on your system, namely the sequencing reads and reference genomes. A sample configuration file is included in the downloaded files and detailed below. 
+One of the few steps in the meCLIP analysis pipeline that actually requires opening a file is customizing the configuration file. This is where you inform the pipeline where relevant files are on your system, namely the sequencing reads and reference genomes. A sample configuration file is included in the downloaded files and detailed below.
 
 ```
 threads: 3
@@ -92,19 +98,19 @@ STAR:
 genome:
   fasta: genome/GRCh37.p13.genome.fa
   twoBit: genome/GRCh37.p13.genome.2bit
-  
+
 metaplotr:
   region_sizes: metaplotr/region_sizes.txt
   hg19_annotation: metaplotr/hg19_annot.sorted.bed
 ```
 
-* **threads:** defines the number of threads available to the pipeline  
+* **threads:** defines the number of threads available to the pipeline (we recommend one less than the total number of usable CPU cores)
 
 * **sample_name:** easily identifiable name of the experiment (this will be included in most of the file names and titles)  
 
-* **reads:** specifies the location of the paired sequencing read files for the IP and INPUT samples (omit the extension suffix, i.e. 'fastq.gz', as this is assumed and needs to be omitted for proper naming) 
+* **reads:** specifies the location of the paired sequencing read files for the IP and INPUT samples (omit the extension suffix, i.e. 'fastq.gz', as this is assumed and needs to be omitted for proper naming)
 
-* **adapters:** location of the list of adapters used by FastQC to identify contamination (tab-delinted file containing name and sequence, example included)  
+* **adapters:** location of the list of adapters used by FastQC to identify contamination (tab-delimited file containing name and sequence, example included)  
 
 * **motif:** IUPAC definition of the motif that is used to filter m<sup>6</sup>As   
 
@@ -114,13 +120,13 @@ metaplotr:
 
 * **metaplotr:** location of the annotation file used to generate the metagene plot
 
-Note - The aligner indicies, genomes, and corresponding annotations are quite large (45Gb for GRCh37/hg19 genome). Please ensure you have sufficient disk space to store the files before executing the pipeline.
+Note - The aligner indices, genomes, and corresponding annotations are quite large (45Gb for GRCh37/hg19 genome). Please ensure you have sufficient disk space to store the files before executing the pipeline.
 
 ### Execute the Analysis Pipeline
 
-Once the location of the reads and genomes are saved into the configuration file, the analysis pipeline can then be executed simply by executing the following command within the working directory: 
+Once the location of the reads and genomes are saved into the configuration file, the analysis pipeline can then be executed simply by executing the following command within the working directory (where 'N' is the number of CPU cores available to the pipeline):
 
-`snakemake`
+`snakemake --cores N`
 
 This will identify m6As in the IP and INPUT samples, cross-reference the two sets to remove any overlaps (to account for mutations not induced by the m<sup>6</sup>As-antibody), and then annotate the resulting m<sup>6</sup>As and generate a report summarizing the analysis.
 
