@@ -151,7 +151,7 @@ rule ip_meCLIP:
         prefix=expand("{sample_name}_IP", sample_name=config["sample_name"])
     message: "Parsing results to identify m6A sites..."
     shell:
-        "java -jar scripts/jars/mpileupParser.jar {input.mpileup} {params.prefix} 0.025 0.5 2 0 && "
+        "java -jar scripts/jars/meCLIP_mpileupParser.jar {input.mpileup} {params.prefix} 0.025 0.5 2 0 && "
         "twoBitToFa {params.twoBit} IP/mpileup/motifList_positive.fa -seqList=IP/mpileup/{params.prefix}_motifList_positive.txt && "
         "twoBitToFa {params.twoBit} IP/mpileup/motifList_negative.fa -seqList=IP/mpileup/{params.prefix}_motifList_negative.txt && "
         "java -jar scripts/jars/meCLIP_motifFrequency.jar IP/mpileup/motifList_positive.fa IP/mpileup/{params.prefix}_mpileupParser_positive.xls [AG]AC && "
@@ -318,7 +318,7 @@ rule input_meCLIP:
         prefix=expand("{sample_name}_INPUT", sample_name=config["sample_name"])
     message: "Parsing results to identify m6A sites..."
     shell:
-        "java -jar scripts/jars/mpileupParser.jar {input.mpileup} {params.prefix} 0.025 0.5 2 0 && "
+        "java -jar scripts/jars/meCLIP_mpileupParser.jar {input.mpileup} {params.prefix} 0.025 0.5 2 0 && "
         "twoBitToFa {params.twoBit} INPUT/mpileup/motifList_positive.fa -seqList=INPUT/mpileup/{params.prefix}_motifList_positive.txt && "
         "twoBitToFa {params.twoBit} INPUT/mpileup/motifList_negative.fa -seqList=INPUT/mpileup/{params.prefix}_motifList_negative.txt && "
         "java -jar scripts/jars/meCLIP_motifFrequency.jar INPUT/mpileup/motifList_positive.fa INPUT/mpileup/{params.prefix}_mpileupParser_positive.xls [AG]AC && "

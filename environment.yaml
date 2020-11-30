@@ -3,7 +3,7 @@ channels:
   - bioconda
   - r
 dependencies:
-  - snakemake
+  - snakemake=5.25.0
   - fastqc
   - umi_tools
   - cutadapt
