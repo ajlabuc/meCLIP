@@ -1,0 +1,18 @@
+channels:
+  - conda-forge
+  - bioconda
+  - r
+dependencies:
+  - snakemake=7.24.2
+  - star=2.7.10b
+  - seqkit=2.3.1
+  - bedops=2.4.41
+  - ucsc-gtftogenepred
+  - perl-bioperl=1.7.8
+  - fastqc=0.11.9
+  - umi_tools=1.1.4
+  - cutadapt=4.2
+  - samtools=1.16.1
+  - openjdk=11.0.15
+  - bedtools=2.30.0
+  - r-base=4.2.2

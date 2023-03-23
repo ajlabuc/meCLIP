@@ -1,0 +1,416 @@
+configfile: "config/config.yaml"
+threads_max=int(config["resources"]["threads"])
+
+rule all:
+    input:
+        "results/report/meCLIP_report.html"
+
+rule genome_download:
+    output:
+        directory("resources/")
+    params:
+        name=expand("{name}", name=config["species"]["name"]),
+        url_fasta=expand("https://ftp.ensembl.org/pub/release-{release}/fasta/{name}/dna", name=config["species"]["name"], release=config["species"]["release"]),
+        url_gtf=expand("https://ftp.ensembl.org/pub/release-{release}/gtf/{name}", name=config["species"]["name"], release=config["species"]["release"]),
+        assembly_fasta=expand("{assembly}", assembly=config["species"]["assembly"]),
+        assembly_gtf=expand("{assembly}.{release}", assembly=config["species"]["assembly"], release=config["species"]["release"]),
+        ram=expand("{ram}", ram=config["resources"]["ram"])
+    log:
+        "results/logs/STAR_genomeGenerate.log"
+    message: "Downloading, indexing, and annotating reference genome from Ensembl..."
+    threads: threads_max
+    shell:
+        """
+        name="{params.name}"; \
+        name="${{name^}}"; \
+        ram="$(({params.ram}*1000000000))"; \
+        curl -s --list-only {params.url_fasta}/ | if grep -q "primary_assembly"; then wget -P {output} {params.url_fasta}/${{name}}.{params.assembly_fasta}.dna.primary_assembly.fa.gz; else wget -P {output} {params.url_fasta}/${{name}}.{params.assembly_fasta}.dna.toplevel.fa.gz; fi; \
+        wget -P {output} {params.url_gtf}/${{name}}.{params.assembly_gtf}.gtf.gz; \
+        gzip -dr {output}; \
+        echo "$(date +%b' '%d' '%H:%M:%S) Indexing genome (takes a while)..."; \
+        STAR --runThreadN {threads_max} --limitGenomeGenerateRAM ${{ram}} --runMode genomeGenerate --genomeSAsparseD 2 --genomeFastaFiles {output}/*.fa --sjdbGTFfile {output}/*.gtf --genomeDir {output}/index > {log} && \
+        echo "$(date +%b' '%d' '%H:%M:%S) Annotating genome (takes a while)..." && \
+        seqkit split {output}/*.fa -i --by-id-prefix "" --id-regexp "([^\s]+)" -O {output}/chroms --quiet && \
+        awk -F'"' -v OFS='"' '{{for(i=2; i<=NF; i+=2) gsub(";", "-", $i)}} 1' {output}/${{name}}.{params.assembly_gtf}.gtf | gtf2bed --attribute-key=gene_name - > {output}/${{name}}.{params.assembly_gtf}.geneNames.bed && \
+        gtfToGenePred -genePredExt {output}/${{name}}.{params.assembly_gtf}.gtf {output}/${{name}}.{params.assembly_gtf}.genePred && \
+        perl workflow/scripts/metaPlotR/make_annot_bed.pl --genomeDir {output}/chroms/ --genePred {output}/${{name}}.{params.assembly_gtf}.genePred > {output}/${{name}}.{params.assembly_gtf}.annotated.bed && \
+        echo "$(date +%b' '%d' '%H:%M:%S) Sorting annotation..." && \
+        sort -k1,1 -k2,2n {output}/${{name}}.{params.assembly_gtf}.annotated.bed > {output}/${{name}}.{params.assembly_gtf}.annotated.sorted.bed && \
+        rm {output}/${{name}}.{params.assembly_gtf}.annotated.bed && \
+        echo "$(date +%b' '%d' '%H:%M:%S) Calculating size of transcript regions (i.e. 5'UTR, CDS and 3'UTR)..." && \
+        perl workflow/scripts/metaPlotR/size_of_cds_utrs.pl --annot {output}/${{name}}.{params.assembly_gtf}.annotated.sorted.bed > {output}/${{name}}.{params.assembly_gtf}.region_sizes.txt
+        """
+
+rule ip_fastqc_preAdapters:
+    input:
+        read2=expand("{r2}", r2=config["reads"]["ip"]["ip_read_2"]),
+        genome=rules.genome_download.output
+    output:
+        directory("results/fastqc/IP/preAdapters")
+    params:
+        truseq_read1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
+        truseq_read2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
+        rna_name=expand("{rname}", rname=config["adapters"]["rna"]["name"]),
+        rna_seq=expand("{rseq}", rseq=config["adapters"]["rna"]["seq"]),
+        sample_name=expand("{sample_name}_IP", sample_name=config["sample_name"])
+    message: "Analyzing IP read quality with FastQC..."
+    threads: threads_max
+    shell:
+        """
+        mkdir -p {output} && \
+        rna_seq="{params.rna_seq}"; \
+        rna_seq=`echo -e ">seq\n${{rna_seq}}" | seqkit subseq -r 1:7 | seqkit seq -s -t RNA --rna2dna --quiet`; \
+        rna_seq_rc=`echo -e ">seq\n${{rna_seq}}" | seqkit seq -p -r -s -t DNA --quiet`; \
+        echo -e "TRUSEQ_I5\t{params.truseq_read2}\nTRUSEQ_I7\t{params.truseq_read1}\n{params.rna_name}\t${{rna_seq}}\n{params.rna_name}_RC\t${{rna_seq_rc}}" > config/adapterList.txt && \
+        fastqc --quiet -t {threads} -a config/adapterList.txt -o {output} {input.read2} && \
+        mv {output}/*.zip {output}/{params.sample_name}_pre_fastqc.zip
+        """
+
+rule ip_umitools_extract:
+    #Read 1 & Read 2 are switched to work better with UMI-tools
+    input:
+        read1=expand("{r1}", r1=config["reads"]["ip"]["ip_read_1"]),
+        read2=expand("{r2}", r2=config["reads"]["ip"]["ip_read_2"]),
+        fastqc=rules.ip_fastqc_preAdapters.output
+    output:
+        read1=temp(expand("results/umitools/IP/{r1}", r1=config["reads"]["ip"]["ip_read_1"])),
+        read2=temp(expand("results/umitools/IP/{r2}", r2=config["reads"]["ip"]["ip_read_2"]))
+    params:
+        randomer_size=expand("{size}", size=config["adapters"]["dna"]["randomer_size"])
+    log:
+        "results/logs/IP_umitools_extract.log"
+    message: "Extracting UMIs from IP reads with UMI-tools..."
+    shell:
+        """
+    	randomer_size="{params.randomer_size}"; \
+        randomer_size=`echo "{{"${{randomer_size}}"}}"`; \
+        umi_tools extract --extract-method=regex --bc-pattern="^(?P<umi_1>.${{randomer_size}})" -I {input.read2} --read2-in={input.read1} --stdout={output.read2} --read2-out={output.read1} --log={log}
+        """
+
+rule ip_cutadapt:
+    input:
+        read1=expand("results/umitools/IP/{r1}", r1=config["reads"]["ip"]["ip_read_1"]),
+        read2=expand("results/umitools/IP/{r2}", r2=config["reads"]["ip"]["ip_read_2"])
+    output:
+        read1=temp(expand("results/cutadapt/IP/{r1}", r1=config["reads"]["ip"]["ip_read_1"])),
+        read2=temp(expand("results/cutadapt/IP/{r2}", r2=config["reads"]["ip"]["ip_read_2"]))
+    params:
+        truseq_read1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
+        truseq_read2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
+        randomer_size=expand("{size}", size=config["adapters"]["dna"]["randomer_size"]),
+        rna_seq=expand("{rseq}", rseq=config["adapters"]["rna"]["sequence"]),
+        args="--match-read-wildcards --quality-cutoff 6 -m 18 -n 2"
+    log:
+        expand("results/logs/{sample_name}_IP.txt", sample_name=config["sample_name"])
+    message: "Removing adapters from IP reads with cutadapt..."
+    threads: threads_max
+    shell:
+        """
+        rna_seq="{params.rna_seq}"; \
+        rna_seq_rc=`echo -e ">seq\n${{rna_seq}}" | seqkit seq -p -r -s -t RNA --rna2dna --quiet`; \
+        randomer_size="{params.randomer_size}"; \
+        randomer_size=`echo "{{"${{randomer_size}}"}}"`; \
+        cutadapt {params.args} -j {threads} -a "ssDNA=${{rna_seq_rc}};min_overlap=5...N${{randomer_size}}{params.truseq_read1};min_overlap=15" -A ssRNA={params.rna_seq} -A TruSeq={params.truseq_read2} -o {output.read1} -p {output.read2} {input} > {log}
+        """
+
+rule ip_fastqc_postAdapters:
+    input:
+        read2=expand("results/cutadapt/IP/{r2}", r2=config["reads"]["ip"]["ip_read_2"])
+    output:
+        directory("results/fastqc/IP/postAdapters")
+    params:
+        sample_name=expand("{sample_name}_IP", sample_name=config["sample_name"])
+    message: "Analyzing IP read quality again to confirm adapters were removed..."
+    threads: threads_max
+    shell:
+        """
+        mkdir -p {output} && \
+        fastqc --quiet -t {threads} -a config/adapterList.txt -o {output} {input} && \
+        mv {output}/*.zip {output}/{params.sample_name}_post_fastqc.zip
+        """
+
+rule ip_STAR:
+    input:
+        read1=expand("results/cutadapt/IP/{r1}", r1=config["reads"]["ip"]["ip_read_1"]),
+        read2=expand("results/cutadapt/IP/{r2}", r2=config["reads"]["ip"]["ip_read_2"]),
+        fastqc=rules.ip_fastqc_postAdapters.output
+    output:
+        bam=temp(expand("results/STAR/IP/{sample_name}_IP.bam", sample_name=config["sample_name"]))
+    params:
+        prefix=expand("results/STAR/IP/{sample_name}_IP.", sample_name=config["sample_name"]),
+        args="--outStd BAM_SortedByCoordinate --outFilterMultimapNmax 1 --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outFilterType BySJout --outFilterScoreMin 10 --outSAMattrRGline ID:foo --alignEndsType EndToEnd --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0"
+    message: "Mapping IP reads to reference genome with STAR..."
+    threads: threads_max
+    shell:
+        """
+        STAR --runThreadN {threads} --runMode alignReads --genomeDir resources/index --readFilesIn {input.read1} {input.read2} --outFileNamePrefix {params.prefix} {params.args} > {output.bam} && \
+        samtools index -@ {threads} {output.bam}
+        """
+
+rule ip_umitools_dedup:
+    input:
+        bam=expand("results/STAR/IP/{sample_name}_IP.bam", sample_name=config["sample_name"])
+    output:
+        bam=temp(expand("results/umitools/IP/dedup/{sample_name}_IP.umiExtracted.adapterTrimmed.duplicatesRemoved.bam", sample_name=config["sample_name"])),
+        r2=expand("results/bam/{sample_name}_IP.bam", sample_name=config["sample_name"])
+    log:
+        "results/logs/IP_umitools_dedup.log"
+    message: "Removing duplicates from IP reads with UMI-tools..."
+    threads: threads_max
+    shell:
+        """
+        umi_tools dedup -I {input.bam} --paired -S {output.bam} --log={log} && \
+        samtools index -@ {threads} {output.bam} && \
+        samtools view -hb -f 128 {output.bam} > {output.r2} && \
+        samtools index -@ {threads} {output.r2}
+        """
+
+rule ip_samtools_mpileup:
+    input:
+        bam=expand("results/bam/{sample_name}_IP.bam", sample_name=config["sample_name"])
+    output:
+        mpileup=temp(expand("results/mpileup/IP/{sample_name}_IP.umiExtracted.adapterTrimmed.duplicatesRemoved.r2.mpileup", sample_name=config["sample_name"]))
+    log:
+        "results/logs/IP_mpileup.log"
+    message: "Identifying C-to-T mutations in IP reads with mpileup..."
+    shell:
+        "samtools mpileup -B -f resources/*.fa {input.bam} > {output.mpileup} 2> {log}"
+
+rule ip_meCLIP:
+    input:
+        mpileup=expand("results/mpileup/IP/{sample_name}_IP.umiExtracted.adapterTrimmed.duplicatesRemoved.r2.mpileup", sample_name=config["sample_name"])
+    output:
+        xls=expand("results/{sample_name}_IP.MpileupParser_MotifFrequency.xls", sample_name=config["sample_name"])
+    params:
+        prefix=expand("{sample_name}_IP", sample_name=config["sample_name"])
+    message: "Parsing IP mpileup results to identify m6A sites..."
+    shell:
+        """
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MpileupParser {input.mpileup} {params.prefix} C T 0.025 0.5 2 0 && \
+        seqkit subseq --quiet --bed results/mpileup/IP/{params.prefix}_motifList_positive.bed resources/*.fa > results/mpileup/IP/motifList_positive.fa && \
+        seqkit subseq --quiet --bed results/mpileup/IP/{params.prefix}_motifList_negative.bed resources/*.fa > results/mpileup/IP/motifList_negative.fa && \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MotifFrequencyCalculator results/mpileup/IP/motifList_positive.fa results/mpileup/IP/{params.prefix}_MpileupParser_positive.xls [AG]AC && \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MotifFrequencyCalculator results/mpileup/IP/motifList_negative.fa results/mpileup/IP/{params.prefix}_MpileupParser_negative.xls GT[TC] && \
+        cat <(echo -e "Chr \tM6A \tRef \tFreq \tMutationCount \tReadCount \tMotifStart \tMotifEnd \tMotif") results/mpileup/IP/{params.prefix}_MpileupParser_positive_motifFrequency.xls results/mpileup/IP/{params.prefix}_MpileupParser_negative_motifFrequency.xls > {output.xls} && \
+        awk '{{if ($9!="No") print $0}}' {output.xls} > {output.xls}.temp && mv {output.xls}.temp {output.xls}
+        """
+
+rule input_fastqc_preAdapters:
+    input:
+        read2=expand("{r2}", r2=config["reads"]["input"]["input_read_2"]),
+        xls=rules.ip_meCLIP.output
+    output:
+        directory("results/fastqc/INPUT/preAdapters")
+    params:
+        sample_name=expand("{sample_name}_INPUT", sample_name=config["sample_name"])
+    message: "Starting INPUT sample analysis..."
+    threads: threads_max
+    shell:
+        """
+        mkdir -p {output} && \
+        fastqc --quiet -t {threads} -a config/adapterList.txt -o {output} {input.read2} && \
+        mv {output}/*.zip {output}/{params.sample_name}_pre_fastqc.zip
+        """
+
+rule input_umitools_extract:
+    #Read 1 & Read 2 are switched to work better with UMI-tools
+    input:
+        read1=expand("{r1}", r1=config["reads"]["input"]["input_read_1"]),
+        read2=expand("{r2}", r2=config["reads"]["input"]["input_read_2"]),
+        fastqc=rules.input_fastqc_preAdapters.output
+    output:
+        read1=temp(expand("results/umitools/INPUT/{r1}", r1=config["reads"]["input"]["input_read_1"])),
+        read2=temp(expand("results/umitools/INPUT/{r2}", r2=config["reads"]["input"]["input_read_2"]))
+    params:
+        randomer_size=expand("{size}", size=config["adapters"]["dna"]["randomer_size"])
+    log:
+        "results/logs/INPUT_umitools_extract.log"
+    message: "Extracting UMIs from INPUT reads with UMI-tools..."
+    shell:
+        """
+    	randomer_size="{params.randomer_size}"; \
+        randomer_size=`echo "{{"${{randomer_size}}"}}"`; \
+        umi_tools extract --extract-method=regex --bc-pattern="^(?P<umi_1>.${{randomer_size}})" -I {input.read2} --read2-in={input.read1} --stdout={output.read2} --read2-out={output.read1} --log={log}
+        """
+
+rule input_cutadapt:
+    input:
+        read1=expand("results/umitools/INPUT/{r1}", r1=config["reads"]["input"]["input_read_1"]),
+        read2=expand("results/umitools/INPUT/{r2}", r2=config["reads"]["input"]["input_read_2"])
+    output:
+        read1=temp(expand("results/cutadapt/INPUT/{r1}", r1=config["reads"]["input"]["input_read_1"])),
+        read2=temp(expand("results/cutadapt/INPUT/{r2}", r2=config["reads"]["input"]["input_read_2"]))
+    params:
+        truseq_read1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
+        truseq_read2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
+        randomer_size=expand("{size}", size=config["adapters"]["dna"]["randomer_size"]),
+        rna_seq=expand("{rseq}", rseq=config["adapters"]["rna"]["sequence"]),
+        args="--match-read-wildcards --quality-cutoff 6 -m 18 -n 2"
+    log:
+        expand("results/logs/{sample_name}_INPUT.txt", sample_name=config["sample_name"])
+    message: "Removing adapters from INPUT reads with cutadapt..."
+    threads: threads_max
+    shell:
+        """
+        rna_seq="{params.rna_seq}"; \
+        rna_seq_rc=`echo -e ">seq\n${{rna_seq}}" | seqkit seq -p -r -s -t RNA --rna2dna --quiet`; \
+        randomer_size="{params.randomer_size}"; \
+        randomer_size=`echo "{{"${{randomer_size}}"}}"`; \
+        cutadapt {params.args} -j {threads} -a "ssDNA=${{rna_seq_rc}};min_overlap=5...N${{randomer_size}}{params.truseq_read1};min_overlap=15" -A ssRNA={params.rna_seq} -A TruSeq={params.truseq_read2} -o {output.read1} -p {output.read2} {input} > {log}
+        """
+
+rule input_fastqc_postAdapters:
+    input:
+        read2=expand("results/cutadapt/INPUT/{r2}", r2=config["reads"]["input"]["input_read_2"])
+    output:
+        directory("results/fastqc/INPUT/postAdapters")
+    params:
+        sample_name=expand("{sample_name}_INPUT", sample_name=config["sample_name"])
+    message: "Analyzing INPUT read quality again to confirm adapters were removed..."
+    threads: threads_max
+    shell:
+        """
+        mkdir -p {output} && \
+        fastqc --quiet -t {threads} -a config/adapterList.txt -o {output} {input} && \
+        mv {output}/*.zip {output}/{params.sample_name}_post_fastqc.zip
+        """
+
+rule input_STAR:
+    input:
+        read1=expand("results/cutadapt/INPUT/{r1}", r1=config["reads"]["input"]["input_read_1"]),
+        read2=expand("results/cutadapt/INPUT/{r2}", r2=config["reads"]["input"]["input_read_2"]),
+        fastqc=rules.input_fastqc_postAdapters.output
+    output:
+        bam=temp(expand("results/STAR/INPUT/{sample_name}_INPUT.bam", sample_name=config["sample_name"]))
+    params:
+        prefix=expand("results/STAR/INPUT/{sample_name}_INPUT.", sample_name=config["sample_name"]),
+        args="--outStd BAM_SortedByCoordinate --outFilterMultimapNmax 1 --outSAMattributes All --outSAMtype BAM SortedByCoordinate --outFilterType BySJout --outFilterScoreMin 10 --outSAMattrRGline ID:foo --alignEndsType EndToEnd --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0"
+    message: "Mapping INPUT reads to reference genome with STAR..."
+    threads: threads_max
+    shell:
+        """
+        STAR --runThreadN {threads} --runMode alignReads --genomeDir resources/index --readFilesIn {input.read1} {input.read2} --outFileNamePrefix {params.prefix} {params.args} > {output.bam} && \
+        samtools index -@ {threads} {output.bam}
+        """
+
+rule input_umitools_dedup:
+    input:
+        bam=expand("results/STAR/INPUT/{sample_name}_INPUT.bam", sample_name=config["sample_name"])
+    output:
+        bam=temp(expand("results/umitools/INPUT/dedup/{sample_name}_INPUT.umiExtracted.adapterTrimmed.duplicatesRemoved.bam", sample_name=config["sample_name"])),
+        r2=expand("results/bam/{sample_name}_INPUT.bam", sample_name=config["sample_name"])
+    log:
+        "results/logs/INPUT_umitools_dedup.log"
+    message: "Removing duplicates from INPUT reads with UMI-tools..."
+    threads: threads_max
+    shell:
+        """
+        umi_tools dedup -I {input.bam} --paired -S {output.bam} --log={log} && \
+        samtools index -@ {threads} {output.bam} && \
+        samtools view -hb -f 128 {output.bam} > {output.r2} && \
+        samtools index -@ {threads} {output.r2} && \
+        cp results/STAR/IP/*.Log.final.out results/logs && \
+        cp results/STAR/INPUT/*.Log.final.out results/logs && \
+        rm -R results/STAR/
+        """
+
+rule input_samtools_mpileup:
+    input:
+        bam=expand("results/bam/{sample_name}_INPUT.bam", sample_name=config["sample_name"])
+    output:
+        mpileup=temp(expand("results/mpileup/INPUT/{sample_name}_INPUT.umiExtracted.adapterTrimmed.duplicatesRemoved.r2.mpileup", sample_name=config["sample_name"]))
+    log:
+        "results/logs/INPUT_mpileup.log"
+    message: "Identifying C-to-T mutations in INPUT reads with mpileup..."
+    shell:
+        "samtools mpileup -B -f resources/*.fa {input.bam} > {output.mpileup} 2> {log}"
+
+rule input_meCLIP:
+    input:
+        mpileup=expand("results/mpileup/INPUT/{sample_name}_INPUT.umiExtracted.adapterTrimmed.duplicatesRemoved.r2.mpileup", sample_name=config["sample_name"]),
+    output:
+        xls=expand("results/{sample_name}_INPUT.MpileupParser_MotifFrequency.xls", sample_name=config["sample_name"])
+    params:
+        prefix=expand("{sample_name}_INPUT", sample_name=config["sample_name"])
+    message: "Parsing INPUT mpileup results..."
+    shell:
+        """
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MpileupParser {input.mpileup} {params.prefix} C T 0.025 0.5 2 0 && \
+        seqkit subseq --quiet --bed results/mpileup/INPUT/{params.prefix}_motifList_positive.bed resources/*.fa > results/mpileup/INPUT/motifList_positive.fa && \
+        seqkit subseq --quiet --bed results/mpileup/INPUT/{params.prefix}_motifList_negative.bed resources/*.fa > results/mpileup/INPUT/motifList_negative.fa && \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MotifFrequencyCalculator results/mpileup/INPUT/motifList_positive.fa results/mpileup/INPUT/{params.prefix}_MpileupParser_positive.xls [AG]AC && \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.MotifFrequencyCalculator results/mpileup/INPUT/motifList_negative.fa results/mpileup/INPUT/{params.prefix}_MpileupParser_negative.xls GT[TC] && \
+        cat <(echo -e "Chr \tM6A \tRef \tFreq \tMutationCount \tReadCount \tMotifStart \tMotifEnd \tMotif") results/mpileup/INPUT/{params.prefix}_MpileupParser_positive_motifFrequency.xls results/mpileup/INPUT/{params.prefix}_MpileupParser_negative_motifFrequency.xls > {output.xls} && \
+        awk '{{if ($9!="No") print $0}}' {output.xls} > {output.xls}.temp && mv {output.xls}.temp {output.xls} && \
+        rm -R results/mpileup/
+        rm -R results/umitools/
+        """
+
+rule meCLIP_InputParser:
+    input:
+        ip_sample=expand("results/{sample_name}_IP.MpileupParser_MotifFrequency.xls", sample_name=config["sample_name"]),
+        input_sample=expand("results/{sample_name}_INPUT.MpileupParser_MotifFrequency.xls", sample_name=config["sample_name"])
+    output:
+        xls=temp(expand("results/{sample_name}.m6aList.xls", sample_name=config["sample_name"]))
+    message: "Comparing IP m6A calls to INPUT and filtering out any overlaps..."
+    shell:
+        "java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.InputParser {input.ip_sample} {input.input_sample} {output.xls}"
+
+rule meCLIP_BedAnnotator:
+    input:
+        xls=expand("results/{sample_name}.m6aList.xls", sample_name=config["sample_name"])
+    output:
+        bed=temp(expand("results/bed/{sample_name}.m6aList.sorted.bed", sample_name=config["sample_name"])),
+        xls=expand("results/{sample_name}.m6aList.FINAL.xls", sample_name=config["sample_name"])
+    params:
+        name=expand("{sample_name}", sample_name=config["sample_name"]),
+        prefix=expand("results/bed/{sample_name}", sample_name=config["sample_name"])
+    message: "Generating annotated BED file of m6A calls (sorted by confidence)..."
+    shell:
+        """
+        preCount=`wc -l < results/*_IP.MpileupParser_MotifFrequency.xls`; postCount=`wc -l < results/*.m6aList.xls`; finalCount=`echo "scale = 3; 100 - ((($postCount - 1) / ($preCount - 1)) * 100)" | bc`; \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.ConfidenceCategorizer {input.xls} {params.name} {params.prefix}.m6aList ${{finalCount}} && \
+        sort -k1,1 -k2,2n {params.prefix}.m6aList.bed > {output.bed} && \
+        bedtools intersect -a {output.bed} -b resources/*.geneNames.bed -wb -s -sorted > {params.prefix}.m6aList.sorted.annotated.bed && \
+        java -cp workflow/scripts/meclip/target/meCLIP.jar com.github.ajlabuc.meclip.BedAnnotator {params.prefix}.m6aList.sorted.annotated.bed {output.xls} && \
+        rm {params.prefix}.m6aList.sorted.annotated.bed  && \
+        rm results/*_MotifFrequency.xls
+        """
+
+rule metaPlotR_perl:
+    input:
+        bed=expand("results/bed/{sample_name}.m6aList.sorted.bed", sample_name=config["sample_name"])
+    output:
+        txt=temp(expand("results/metaPlotR/{sample_name}.m6a.dist.measures.txt", sample_name=config["sample_name"]))
+    log:
+        "results/logs/metaPlotR.log"
+    message: "Generating metagene plot..."
+    shell:
+        """
+        bedtools intersect -a {input.bed} -b resources/*.annotated.sorted.bed > results/metaPlotR/annot_m6a.sorted.bed -wo -s -sorted && \
+        perl workflow/scripts/metaPlotR/rel_and_abs_dist_calc.pl --bed results/metaPlotR/annot_m6a.sorted.bed --regions resources/*.region_sizes.txt > {output.txt} 2> {log}
+        """
+
+rule metaPlotR_R:
+    input:
+        txt=expand("results/metaPlotR/{sample_name}.m6a.dist.measures.txt", sample_name=config["sample_name"])
+    output:
+        png=expand("results/{sample_name}.metagene.png", sample_name=config["sample_name"])
+    params:
+        sample_name=expand("{sample_name}", sample_name=config["sample_name"])
+    message: "Generating metagene plot..."
+    script:
+        "scripts/metaPlotR/visualize_metagenes.R"
+
+rule multiqc: 
+    input: 
+        metagene=rules.metaPlotR_R.output
+    output:
+        "results/report/meCLIP_report.html"
+    conda:
+        "envs/multiqc.yaml"
+    shell: 
+        """
+        multiqc results --config config/multiqc_config.yaml -n meCLIP_report -o results/report && \
+        rm -R results/metaPlotR/
+        """

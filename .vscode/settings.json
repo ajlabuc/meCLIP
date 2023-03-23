@@ -1,0 +1,25 @@
+{
+    "java.dependency.syncWithFolderExplorer": false,
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "cSpell.ignoreWords": [
+        "Snakemake"
+    ],
+    "cSpell.words": [
+        "AUAUAGGNNNNNAGAUCGGAAGAGCGUCGUGUAG",
+        "BEDOPS",
+        "bedtools",
+        "conda",
+        "Conda",
+        "cutadapt",
+        "Ensembl",
+        "fasta",
+        "FASTA",
+        "ggplot",
+        "immunoprecipitation",
+        "Miniconda",
+        "Porman",
+        "randomer",
+        "samtools",
+        "snakefile"
+    ]
+}

@@ -1,0 +1,5 @@
+com/github/ajlabuc/meclip/InputParser.class
+com/github/ajlabuc/meclip/MotifFrequencyCalculator.class
+com/github/ajlabuc/meclip/ConfidenceCategorizer.class
+com/github/ajlabuc/meclip/MpileupParser.class
+com/github/ajlabuc/meclip/BedAnnotator.class

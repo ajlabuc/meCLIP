@@ -1,0 +1,4 @@
+Building DAG of jobs...
+MissingInputException in line 42 of /home/justin/GitHub/meCLIP/Snakefile:
+Missing input files for rule ip_fastqc_preAdapters:
+reads/ip_read2

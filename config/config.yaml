@@ -1,27 +1,25 @@
-threads: 3
+sample_name: meCLIP
 
-sample_name: meCLIP_TEST
+resources:
+  threads: 11
+  ram: 29
+
+species:
+  name: homo_sapiens
+  assembly: GRCh38
+  release: 109
 
 reads:
   ip:
-    ip_read1: reads/ip_read1
-    ip_read2: reads/ip_read2
+    ip_read_1: reads/ip_read1.fastq
+    ip_read_2: reads/ip_read2
   input:
-    input_read1: reads/input_read1
-    input_read2: reads/input_read2
+    input_read_1: reads/input_read1
+    input_read_2: reads/input_read2
 
-adapters: config/adapterList.txt
-
-motif: RAC
-
-STAR:
-  repbase: STAR/repbase_human
-  genome: STAR/hg19
-
-genome:
-  fasta: genome/GRCh37.p13.genome.fa
-  twoBit: genome/GRCh37.p13.genome.2bit
-
-metaplotr:
-  region_sizes: metaplotr/region_sizes.txt
-  hg19_annotation: metaplotr/hg19_annot.sorted.bed
+adapters:
+  dna: 
+    randomer_size: 10
+  rna: 
+    name: X1A
+    seq: AUAUAGGNNNNNAGAUCGGAAGAGCGUCGUGUAG

@@ -1,0 +1,102 @@
+title: "meCLIP Analysis Report"
+intro_text: "Summarizes output of each step in the analysis pipeline"
+
+show_analysis_paths: False
+
+extra_fn_clean_exts:
+  - type: remove
+    pattern: "_pre"
+  - type: remove
+    pattern: "_post"
+    
+use_filename_as_sample_name:
+  - cutadapt
+  - fastqc/zip
+
+module_order:
+  - fastqc:
+      name: "FastQC"
+      anchor: "fastqc_raw"
+      path_filters:
+        - "*_pre_fastqc.zip"
+  - cutadapt
+  - fastqc:
+      name: "FastQC (Post-Adapter Trimming)"
+      anchor: "fastqc_trimmed"
+      info: "This section of the report shows FastQC results after adapter trimming."
+      path_filters:
+        - "*_post_fastqc.zip"
+  - star
+  - umitools
+
+report_section_order:
+  fastqc_raw_fastqc_sequence_counts: remove
+  fastqc_raw_fastqc_per_base_n_content: remove
+  fastqc_raw_fastqc_sequence_duplication_levels: remove
+  fastqc_raw_fastqc_overrepresented_sequences: remove
+  fastqc_trimmed_fastqc_sequence_counts: remove
+  fastqc_trimmed_fastqc_per_base_sequence_quality: remove
+  fastqc_trimmed_fastqc_per_sequence_quality_scores: remove
+  fastqc_trimmed_fastqc_per_base_n_content: remove
+  fastqc_trimmed_fastqc_sequence_duplication_levels: remove
+  fastqc_trimmed_fastqc_overrepresented_sequences: remove
+  umitools-umi-stats: remove
+  metaplotr:
+    order: -1000
+    
+table_columns_visible:
+  FastQC:
+     percent_duplicates: False
+     avg_sequence_length: True
+  FastQC (Post-Adapter Trimming):
+     percent_duplicates: False
+     percent_gc: False
+     avg_sequence_length: True
+     
+table_columns_placement:
+  UMI-tools:
+    percent_passing_dedup: 1010
+    output_reads: 1020
+  meCLIP:
+    "% Input Filtered": 1000
+    Low Confidence (<5%): 1010
+    High Confidence (>5%): 1020
+    Total M6A: 1030
+    
+custom_data:
+  metaplotr:
+    parent_id: metaplotr
+    parent_name: "MetaPlotR"
+    parent_description: "MetaPlotR is a Perl/R pipeline for creating metagene plots."
+    section_name: "Metagene"
+    description: "A metagene is a density plot of sites of RNA modifications along a simplified transcript model containing a 5’UTR, coding sequence and 3’UTR."
+  summary_table:
+    file_format: "tsv"
+    section_name: "Summary Table"
+    description: "This table summarizes of identified m6A residues categorized by confidence."
+    plot_type: "table"
+    pconfig:
+      id: "summary_table"
+      table_title: "Summary Table"
+      namespace: "meCLIP"
+      scale: False
+    headers:
+      "% Input Filtered":
+        description: "% of m6As filtered by comparing to the input sample"
+        suffix: "%"
+      Low Confidence (<5%):
+        description: "Number of low-confidence m6As where the mutation frequency was ≥2.5% to <5%"
+        format: '{:,.0f}'
+      High Confidence (>5%):
+        description: "Number of high-confidence m6As where the mutation frequency was ≥5% to <50%"
+        format: '{:,.0f}'
+      Total M6A:
+        description: "Total number of identified m6A residues"
+        format: '{:,.0f}'  
+
+sp:
+  metaplotr:
+    fn: "*.metagene.png"
+  summary_table:
+    fn: "*.summary.tsv"
+ignore_images: false
