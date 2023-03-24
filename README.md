@@ -8,17 +8,17 @@ Requirements
 
 If installed as recommended, the pipeline automatically handles the installation of required software. For reference, the following programs are used by meCLIP:
 
-    Snakemake (v5.25.0)
+    Snakemake (v7.24.2)
     STAR (v2.7.10b)
     SeqKit (v2.3.0)
     BEDOPS (v2.4.41)
     Perl (v5.32.1)
     FastQC (v0.11.7)
-    UMI-tools (v1.0.0)
-    cutadapt (v2.8)
-    samtools (v1.9)
+    UMI-tools (v1.1.4)
+    cutadapt (v4.2)
+    samtools (v1.16.1)
     Java (OpenJDK v11.0.15)
-    bedtools (v2.26.0)
+    bedtools (v2.30.0)
     R (v4.2.2)
       "scales" and "ggplot2" packages
     MultiQC (v1.14)
@@ -68,7 +68,7 @@ The default Conda solver is a bit slow and sometimes has issues with selecting t
 \
 Then, to create an environment with the required software:  
 \
-`mamba env create --name meCLIP --file environment.yaml`  
+`mamba env create --name meCLIP --file workflow/envs/environment.yaml`  
 \
 Finally, to activate the meCLIP environment, execute:  
 \
@@ -90,11 +90,11 @@ resources:
 
 reads:
   ip:
-    ip_read1: reads/ip_read1.fq
-    ip_read2: reads/ip_read2.fq
+    ip_read1: reads/ip_read_1.fq
+    ip_read2: reads/ip_read_2.fq
   input:
-    input_read1: reads/input_read1.fq
-    input_read2: reads/input_read2.fq
+    input_read1: reads/input_read_1.fq
+    input_read2: reads/input_read_2.fq
     
 species:
   name: homo_sapiens
@@ -116,9 +116,9 @@ adapters:
 
 * **reads:** specifies the locations / filenames of the paired sequencing read files for the IP and INPUT samples (relative to working directory)
 
-* **species:** describes the reference species to identify m6A residues in (see *Reference Genome* below for details)
+* **species:** describes the reference species to identify m6A residues in (see 'Reference Genome' below for details)
 
-* **adapters:** details the specific adapters used in the experiment (see *Adapters* below for details)  
+* **adapters:** details the specific adapters used in the experiment (see 'Adapters' below for details)  
 
 <a id="reference-genome"></a>
 ### <ins>Reference Genome</ins>

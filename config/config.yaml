@@ -4,22 +4,22 @@ resources:
   threads: 11
   ram: 29
 
+reads:
+  ip:
+    ip_read_1: reads/ip_read_1.fq
+    ip_read_2: reads/ip_read_2.fq
+  input:
+    input_read_1: reads/input_read_1.fq
+    input_read_2: reads/input_read_2.fq
+
 species:
   name: homo_sapiens
   assembly: GRCh38
   release: 109
-
-reads:
-  ip:
-    ip_read_1: reads/ip_read1.fastq
-    ip_read_2: reads/ip_read2
-  input:
-    input_read_1: reads/input_read1
-    input_read_2: reads/input_read2
 
 adapters:
   dna: 
     randomer_size: 10
   rna: 
     name: X1A
-    seq: AUAUAGGNNNNNAGAUCGGAAGAGCGUCGUGUAG
+    sequence: AUAUAGGNNNNNAGAUCGGAAGAGCGUCGUGUAG

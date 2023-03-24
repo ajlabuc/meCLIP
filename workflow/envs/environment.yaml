@@ -5,7 +5,7 @@ channels:
 dependencies:
   - snakemake=7.24.2
   - star=2.7.10b
-  - seqkit=2.3.1
+  - seqkit=2.3.0
   - bedops=2.4.41
   - ucsc-gtftogenepred
   - perl-bioperl=1.7.8

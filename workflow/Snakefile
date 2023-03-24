@@ -51,7 +51,7 @@ rule ip_fastqc_preAdapters:
         truseq_read1="AGATCGGAAGAGCACACGTCTGAACTCCAGTCA",
         truseq_read2="AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT",
         rna_name=expand("{rname}", rname=config["adapters"]["rna"]["name"]),
-        rna_seq=expand("{rseq}", rseq=config["adapters"]["rna"]["seq"]),
+        rna_seq=expand("{rseq}", rseq=config["adapters"]["rna"]["sequence"]),
         sample_name=expand("{sample_name}_IP", sample_name=config["sample_name"])
     message: "Analyzing IP read quality with FastQC..."
     threads: threads_max
